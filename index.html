@@ -178,6 +178,7 @@
           <span>MQTT: <strong>Online (1883)</strong> &bull; TS: <strong>100.116.96.29</strong></span>
         </div>
         <a href="https://vigokk.github.io/stb-monitoring/" class="btn-nav">🖥️ STB Monitor &amp; Control</a>
+        <button class="btn-logout" onclick="shutdownPc()">⏻ Shutdown PC</button>
         <button class="btn-logout" onclick="ghLogout()">🚪 Logout</button>
       </div>
     </div>
@@ -357,6 +358,14 @@
         document.getElementById('tile' + i).className = 'sh-tile' + (on ? ' on' : '');
         document.getElementById('bdg' + i).textContent = on ? 'ON' : 'OFF';
       });
+    }
+
+    async function shutdownPc() {
+      if (!confirm('Matikan PC (shutdown) sekarang?')) return;
+      try {
+        const r = await fetch(API + '/api/action?key=27042002&cmd=shutdown_pc', { method: 'POST' });
+        alert((await r.json()).message);
+      } catch (e) { alert('Gagal menghubungi STB.'); }
     }
 
     function pushMqtt(topic, payload) {
