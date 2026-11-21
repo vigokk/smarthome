@@ -2,137 +2,427 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <title>Smart Kamar Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Smart Kamar Hub • Bardi &amp; ESP32</title>
   <style>
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: radial-gradient(circle at top right, #1e293b 0%, #0b1120 70%);
+      background: radial-gradient(circle at top right, #1e293b 0%, #0b1120 68%);
       color: #f8fafc;
+      min-height: 100dvh;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(26px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      -webkit-text-size-adjust: 100%;
     }
-    #loginOverlay {
-      position: fixed; inset: 0; z-index: 9999;
-      display: flex; align-items: center; justify-content: center; padding: 20px;
-      background: radial-gradient(circle at top right, #1e293b 0%, #0b1120 70%);
+    .container { max-width: 1200px; margin: 0 auto; }
+    .sh-header {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 14px; margin-bottom: 22px; padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    .login-card {
-      width: 100%; max-width: 390px;
-      background: rgba(30, 41, 59, 0.72); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-      border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 24px;
-      padding: 32px 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    }
-    .login-card h1 {
-      margin: 0 0 6px; font-size: 21px; font-weight: 700; text-align: center;
+    .sh-title h1 {
+      margin: 0; font-size: 25px; font-weight: 700;
       background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .login-card p { margin: 0 0 22px; font-size: 13px; color: #94a3b8; text-align: center; }
-    .field { margin-bottom: 15px; }
-    .field label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 6px; font-weight: 600; }
-    .field input {
-      width: 100%; padding: 12px 14px; border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.12); background: rgba(15, 23, 42, 0.85);
-      color: #fff; font-size: 16px; outline: none;
+    .sh-title p { margin: 4px 0 0; font-size: 13px; color: #94a3b8; }
+    .sh-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .sh-status-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(30, 41, 59, 0.78); border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 9px 14px; border-radius: 999px; font-size: 12px; color: #cbd5e1;
     }
-    .field input:focus { border-color: #38bdf8; }
-    .btn-login {
-      width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #38bdf8;
-      background: linear-gradient(135deg, #0284c7, #4f46e5);
-      color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.3); margin-top: 6px;
+    .sh-dot { width: 9px; height: 9px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .btn-nav {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+      text-decoration: none; cursor: pointer; border: 1px solid #38bdf8;
+      background: linear-gradient(135deg, #0284c7, #4f46e5); color: #fff;
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
     }
-    .err { color: #f87171; font-size: 12px; text-align: center; margin-bottom: 12px; display: none; }
-    #appFrame {
-      position: fixed; inset: 0; width: 100vw; height: 100dvh; border: none; display: none; -webkit-overflow-scrolling: touch;
-      background: #0b1120;
+    .btn-logout {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 15px; border-radius: 999px; font-size: 13px; font-weight: 700;
+      cursor: pointer; background: rgba(239,68,68,0.18); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5;
+    }
+    .sh-section-label {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1.1px;
+      color: #64748b; font-weight: 700; margin: 0 0 12px 2px;
+    }
+    .sh-scenes {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px;
+    }
+    .sh-scene-btn {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(30, 41, 59, 0.65); border: 1px solid rgba(255,255,255,0.07);
+      padding: 14px 16px; border-radius: 16px; cursor: pointer; color: #e2e8f0; text-align: left;
+      transition: all 0.2s;
+    }
+    .sh-scene-btn.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(129, 140, 248, 0.22));
+      border-color: #38bdf8; box-shadow: 0 6px 20px rgba(56, 189, 248, 0.18);
+    }
+    .sh-scene-icon { font-size: 22px; }
+    .sh-scene-text strong { display: block; font-size: 14px; font-weight: 600; }
+    .sh-scene-text span { font-size: 11px; color: #94a3b8; }
+    .sh-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    }
+    .sh-card {
+      background: rgba(30, 41, 59, 0.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 22px; padding: 20px;
+      transition: all 0.25s;
+    }
+    .sh-card.bardi-on {
+      border-color: rgba(250, 204, 21, 0.45); box-shadow: 0 10px 30px rgba(250, 204, 21, 0.12);
+    }
+    .sh-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .sh-card-title { display: flex; align-items: center; gap: 12px; }
+    .sh-icon-box {
+      width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; background: rgba(255,255,255,0.06);
+    }
+    .bardi-on .sh-icon-box.lamp-icon { background: rgba(250, 204, 21, 0.22); box-shadow: 0 0 18px rgba(250, 204, 21, 0.4); }
+    .sh-card-title h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .sh-card-title small { color: #94a3b8; font-size: 12px; }
+    .sh-power-btn {
+      width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(15, 23, 42, 0.85); color: #94a3b8; font-size: 19px; cursor: pointer;
+    }
+    .sh-power-btn.on { background: #eab308; color: #0f172a; border-color: #fef08a; box-shadow: 0 0 16px rgba(234, 179, 8, 0.65); }
+    .sh-control-group { margin-bottom: 16px; }
+    .sh-control-header { display: flex; justify-content: space-between; font-size: 13px; color: #cbd5e1; margin-bottom: 8px; }
+    .sh-slider {
+      -webkit-appearance: none; width: 100%; height: 10px; border-radius: 999px;
+      background: rgba(15, 23, 42, 0.88); outline: none;
+    }
+    .sh-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%;
+      background: #38bdf8; cursor: pointer; box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    }
+    .sh-color-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+    .sh-color-swatch {
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.25);
+    }
+    .sh-relay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sh-tile {
+      background: rgba(15, 23, 42, 0.68); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px; padding: 14px; cursor: pointer; min-height: 82px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .sh-tile.on {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(59, 130, 246, 0.18));
+      border-color: #38bdf8; box-shadow: 0 4px 16px rgba(56, 189, 248, 0.18);
+    }
+    .sh-tile-top { display: flex; justify-content: space-between; align-items: center; font-size: 20px; }
+    .sh-tile-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+      background: rgba(255,255,255,0.08); color: #94a3b8;
+    }
+    .sh-tile.on .sh-tile-badge { background: #38bdf8; color: #0f172a; }
+    .sh-tile-name { margin-top: 10px; font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .sh-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .sh-metric-box {
+      background: rgba(15, 23, 42, 0.68); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px; padding: 16px; text-align: center;
+    }
+    .sh-metric-val { font-size: 28px; font-weight: 700; color: #38bdf8; margin: 4px 0; }
+    .sh-metric-lbl { font-size: 12px; color: #94a3b8; }
+    .sh-sys-row {
+      display: flex; justify-content: space-between; font-size: 13px;
+      padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: #cbd5e1;
+    }
+    /* Mobile & iPhone 17 Safari Adaptive Rules */
+    @media (max-width: 820px) {
+      .sh-header { flex-direction: column; align-items: stretch; gap: 12px; }
+      .sh-nav { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+      .sh-status-pill { grid-column: 1 / -1; justify-content: center; }
+      .sh-scenes { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .sh-scene-btn { padding: 12px; }
+      .sh-grid { grid-template-columns: 1fr; gap: 15px; }
+      .sh-card { padding: 18px; border-radius: 20px; }
     }
   </style>
 </head>
 <body>
-  <div id="loginOverlay">
-    <form class="login-card" onsubmit="doAuth(event)">
-      <h1>🔒 Smart Kamar Hub</h1>
-      <p>Masukkan Username &amp; Password Anda</p>
-      <div class="err" id="errMsg">Username atau Password salah!</div>
-      <div class="field">
-        <label>Username</label>
-        <input type="text" id="u" placeholder="admin" required autofocus>
+  <div id="ghLoginOverlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top right,#1e293b 0%,#0b1120 70%);">
+    <form style="width:100%;max-width:390px;background:rgba(30,41,59,0.78);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,0.3);border-radius:24px;padding:30px 24px;box-shadow:0 20px 50px rgba(0,0,0,0.55);" onsubmit="ghDoLogin(event)">
+      <h1 style="margin:0 0 6px;font-size:21px;font-weight:700;text-align:center;background:linear-gradient(90deg,#38bdf8,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🔒 Smart Kamar Hub</h1>
+      <p style="margin:0 0 22px;font-size:13px;color:#94a3b8;text-align:center;">Masukkan Username &amp; Password (20m)</p>
+      <div id="ghErr" style="color:#f87171;font-size:12px;text-align:center;margin-bottom:12px;display:none;">Username atau Password salah!</div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:6px;font-weight:600;">Username</label>
+        <input type="text" id="ghU" placeholder="admin" required style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.14);background:rgba(15,23,42,0.9);color:#fff;font-size:16px;outline:none;">
       </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="p" placeholder="••••••••" required>
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:6px;font-weight:600;">Password</label>
+        <input type="password" id="ghP" placeholder="••••••••" required style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.14);background:rgba(15,23,42,0.9);color:#fff;font-size:16px;outline:none;">
       </div>
-      <button type="submit" class="btn-login">Masuk &rarr;</button>
+      <button type="submit" style="width:100%;padding:13px;border-radius:12px;border:1px solid #38bdf8;background:linear-gradient(135deg,#0284c7,#4f46e5);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(56,189,248,0.3);">Masuk ke Smart Kamar &rarr;</button>
     </form>
   </div>
 
-  <iframe id="appFrame" allow="fullscreen; clipboard-read; clipboard-write"></iframe>
+  <div class="container">
+    <div class="sh-header">
+      <div class="sh-title">
+        <h1>Smart Kamar Hub</h1>
+        <p>Bardi Smart Light &bull; ESP32 Controller &bull; STB X1 Lite Server</p>
+      </div>
+      <div class="sh-nav">
+        <div class="sh-status-pill">
+          <span class="sh-dot"></span>
+          <span>MQTT: <strong>Online (1883)</strong> &bull; TS: <strong>100.116.96.29</strong></span>
+        </div>
+        <a href="https://vigokk.github.io/stb-monitoring/" class="btn-nav">🖥️ STB Monitor &amp; Control</a>
+        <button class="btn-logout" onclick="ghLogout()">🚪 Logout</button>
+      </div>
+    </div>
+
+    <div class="sh-section-label">Mode Cepat (Quick Scenes)</div>
+    <div class="sh-scenes">
+      <button class="sh-scene-btn" id="sc_focus" onclick="setScene('focus')">
+        <span class="sh-scene-icon">💻</span>
+        <div class="sh-scene-text"><strong>Fokus Kerja</strong><span>Putih 100% + Kipas</span></div>
+      </button>
+      <button class="sh-scene-btn active" id="sc_relax" onclick="setScene('relax')">
+        <span class="sh-scene-icon">🌅</span>
+        <div class="sh-scene-text"><strong>Santai Malam</strong><span>Warm White 45%</span></div>
+      </button>
+      <button class="sh-scene-btn" id="sc_cinema" onclick="setScene('cinema')">
+        <span class="sh-scene-icon">🎬</span>
+        <div class="sh-scene-text"><strong>Mode Nonton</strong><span>Ungu Neon 25%</span></div>
+      </button>
+      <button class="sh-scene-btn" id="sc_sleep" onclick="setScene('sleep')">
+        <span class="sh-scene-icon">🌙</span>
+        <div class="sh-scene-text"><strong>Mode Tidur</strong><span>Lampu OFF, Kipas ON</span></div>
+      </button>
+    </div>
+
+    <div class="sh-grid">
+      <div class="sh-card bardi-on" id="bardiCard">
+        <div class="sh-card-head">
+          <div class="sh-card-title">
+            <div class="sh-icon-box lamp-icon">💡</div>
+            <div>
+              <h3>Lampu Utama Bardi</h3>
+              <small id="bardiSub">Menyala • 80% • Warm White</small>
+            </div>
+          </div>
+          <button class="sh-power-btn on" id="bardiPwrBtn" onclick="toggleBardi()">⏻</button>
+        </div>
+
+        <div class="sh-control-group">
+          <div class="sh-control-header"><span>Kecerahan (Brightness)</span><strong id="brVal">80%</strong></div>
+          <input type="range" class="sh-slider" id="brSlider" min="1" max="100" value="80" oninput="onBrChange(this.value)">
+        </div>
+
+        <div class="sh-control-group">
+          <div class="sh-control-header"><span>Temperatur Warna (Warm &leftrightarrow; Cool)</span><strong id="ctVal">4000K</strong></div>
+          <input type="range" class="sh-slider" id="ctSlider" min="2700" max="6500" step="100" value="4000" oninput="onCtChange(this.value)">
+        </div>
+
+        <div class="sh-control-group" style="margin-bottom:0">
+          <div class="sh-control-header"><span>Pilihan Warna Cepat (RGBWW)</span><strong id="colName">Warm White</strong></div>
+          <div class="sh-color-row">
+            <div class="sh-color-swatch" style="background:#fef08a" onclick="setCol('#fef08a','Warm White')"></div>
+            <div class="sh-color-swatch" style="background:#f8fafc" onclick="setCol('#f8fafc','Cool Daylight')"></div>
+            <div class="sh-color-swatch" style="background:#38bdf8" onclick="setCol('#38bdf8','Ocean Blue')"></div>
+            <div class="sh-color-swatch" style="background:#a855f7" onclick="setCol('#a855f7','Cyber Purple')"></div>
+            <div class="sh-color-swatch" style="background:#22c55e" onclick="setCol('#22c55e','Emerald Green')"></div>
+            <div class="sh-color-swatch" style="background:#ef4444" onclick="setCol('#ef4444','Sunset Red')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sh-card">
+        <div class="sh-card-head">
+          <div class="sh-card-title">
+            <div class="sh-icon-box">🔌</div>
+            <div>
+              <h3>Saklar Relay ESP32</h3>
+              <small>Topic: kamar/esp32/relay1..4/set</small>
+            </div>
+          </div>
+        </div>
+        <div class="sh-relay-grid">
+          <div class="sh-tile" id="tile1" onclick="toggleRelay(1)">
+            <div class="sh-tile-top"><span>🌀</span><span class="sh-tile-badge" id="bdg1">OFF</span></div>
+            <div class="sh-tile-name">Kipas / Exhaust</div>
+          </div>
+          <div class="sh-tile" id="tile2" onclick="toggleRelay(2)">
+            <div class="sh-tile-top"><span>🖥️</span><span class="sh-tile-badge" id="bdg2">OFF</span></div>
+            <div class="sh-tile-name">Lampu Meja Kerja</div>
+          </div>
+          <div class="sh-tile" id="tile3" onclick="toggleRelay(3)">
+            <div class="sh-tile-top"><span>🔋</span><span class="sh-tile-badge" id="bdg3">OFF</span></div>
+            <div class="sh-tile-name">Terminal Charger</div>
+          </div>
+          <div class="sh-tile" id="tile4" onclick="toggleRelay(4)">
+            <div class="sh-tile-top"><span>✨</span><span class="sh-tile-badge" id="bdg4">OFF</span></div>
+            <div class="sh-tile-name">LED Strip Belakang</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sh-card">
+        <div class="sh-card-head">
+          <div class="sh-card-title">
+            <div class="sh-icon-box">🌡️</div>
+            <div>
+              <h3>Sensor Kamar &amp; Status STB</h3>
+              <small>Live Telemetry via MQTT</small>
+            </div>
+          </div>
+        </div>
+        <div class="sh-metrics">
+          <div class="sh-metric-box">
+            <div class="sh-metric-lbl">Suhu Kamar</div>
+            <div class="sh-metric-val" id="sTemp">26.5°C</div>
+            <div class="sh-metric-lbl">kamar/esp32/suhu</div>
+          </div>
+          <div class="sh-metric-box">
+            <div class="sh-metric-lbl">Kelembaban</div>
+            <div class="sh-metric-val" style="color:#a855f7" id="sHum">58%</div>
+            <div class="sh-metric-lbl">kamar/esp32/hum</div>
+          </div>
+        </div>
+        <div>
+          <div class="sh-sys-row"><span>Server Host</span><strong>STB X1 Lite (RTD1310)</strong></div>
+          <div class="sh-sys-row"><span>IP Lokal / Tailscale</span><strong id="sIps">192.168.1.11 / 100.116.96.29</strong></div>
+          <div class="sh-sys-row"><span>Status Uptime &amp; RAM</span><strong id="sRam">Memuat...</strong></div>
+          <a href="https://vigokk.github.io/stb-monitoring/" style="margin-top:12px;width:100%;display:flex;justify-content:center;align-items:center;gap:8px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8;padding:12px;border-radius:14px;font-size:13px;font-weight:700;text-decoration:none;">
+            🖥️ Buka Panel Performa &amp; Kontrol STB &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
-    const TARGET_URL = "https://already-last-fantastic-woods.trycloudflare.com/ui";
-    const TOKEN_KEY = "stb_gh_auth_v3_" + window.location.pathname;
-    const SESSION_TIMEOUT_MS = 20 * 60 * 1000; // 20 menit
+    const API = "https://thank-avi-split-incurred.trycloudflare.com";
+    const GH_AUTH_KEY = 'stb_native_sh_auth_v4';
+    const GH_TIMEOUT = 20 * 60 * 1000;
 
-    function isSessionValid() {
+    let st = {
+      scene: 'relax',
+      bardi: { power: true, brightness: 80, temp: 4000, color: '#fef08a', colorName: 'Warm White' },
+      relays: { r1: false, r2: false, r3: false, r4: false }
+    };
+
+    function ghCheck() {
       try {
-        const raw = localStorage.getItem(TOKEN_KEY);
-        if (!raw) return false;
-        const data = JSON.parse(raw);
-        if (data && data.exp && Date.now() < data.exp) {
-          return true;
-        }
+        const d = JSON.parse(localStorage.getItem(GH_AUTH_KEY) || '{}');
+        if (d.exp && Date.now() < d.exp) return true;
       } catch (e) {}
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(GH_AUTH_KEY);
       return false;
     }
-
-    function lockApp() {
-      localStorage.removeItem(TOKEN_KEY);
-      const frame = document.getElementById("appFrame");
-      frame.src = "about:blank";
-      frame.style.display = "none";
-      document.getElementById("loginOverlay").style.display = "flex";
+    function ghUnlock() { document.getElementById('ghLoginOverlay').style.display = 'none'; }
+    function ghLogout() {
+      localStorage.removeItem(GH_AUTH_KEY);
+      document.getElementById('ghLoginOverlay').style.display = 'flex';
     }
-
-    function unlockApp() {
-      document.getElementById("loginOverlay").style.display = "none";
-      const frame = document.getElementById("appFrame");
-      frame.style.display = "block";
-      frame.src = TARGET_URL;
-    }
-
-    function doAuth(e) {
+    function ghDoLogin(e) {
       e.preventDefault();
-      const u = document.getElementById("u").value.trim();
-      const p = document.getElementById("p").value;
-      if (u === "admin" && p === "27042002") {
-        localStorage.setItem(TOKEN_KEY, JSON.stringify({ exp: Date.now() + SESSION_TIMEOUT_MS }));
-        unlockApp();
+      if (document.getElementById('ghU').value.trim() === 'admin' && document.getElementById('ghP').value === '27042002') {
+        localStorage.setItem(GH_AUTH_KEY, JSON.stringify({ exp: Date.now() + GH_TIMEOUT }));
+        ghUnlock();
       } else {
-        document.getElementById("errMsg").style.display = "block";
+        document.getElementById('ghErr').style.display = 'block';
       }
     }
+    if (ghCheck()) ghUnlock();
+    setInterval(() => { if (!ghCheck()) ghLogout(); }, 10000);
 
-    window.addEventListener("message", function(ev) {
-      if (ev.data === "stb_logout") {
-        lockApp();
-      } else if (ev.data && ev.data.navigate) {
-        window.top.location.href = ev.data.navigate;
-      }
-    });
-
-    if (isSessionValid()) {
-      unlockApp();
+    function renderState() {
+      ['focus','relax','cinema','sleep'].forEach(s => {
+        document.getElementById('sc_' + s).className = 'sh-scene-btn' + (st.scene === s ? ' active' : '');
+      });
+      document.getElementById('bardiCard').className = 'sh-card' + (st.bardi.power ? ' bardi-on' : '');
+      document.getElementById('bardiPwrBtn').className = 'sh-power-btn' + (st.bardi.power ? ' on' : '');
+      document.getElementById('bardiSub').textContent = st.bardi.power
+        ? ('Menyala • ' + st.bardi.brightness + '% • ' + st.bardi.colorName)
+        : 'Mati (Standby)';
+      document.getElementById('brVal').textContent = st.bardi.brightness + '%';
+      document.getElementById('brSlider').value = st.bardi.brightness;
+      document.getElementById('ctVal').textContent = st.bardi.temp + 'K';
+      document.getElementById('ctSlider').value = st.bardi.temp;
+      document.getElementById('colName').textContent = st.bardi.colorName;
+      [1,2,3,4].forEach(i => {
+        const on = st.relays['r' + i];
+        document.getElementById('tile' + i).className = 'sh-tile' + (on ? ' on' : '');
+        document.getElementById('bdg' + i).textContent = on ? 'ON' : 'OFF';
+      });
     }
 
-    setInterval(function() {
-      if (document.getElementById("loginOverlay").style.display === "none" && !isSessionValid()) {
-        lockApp();
+    function pushMqtt(topic, payload) {
+      fetch(API + '/api/smarthome?key=27042002', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, payload, state: st })
+      }).catch(() => {});
+    }
+
+    function toggleBardi() {
+      st.bardi.power = !st.bardi.power;
+      renderState();
+      pushMqtt('kamar/bardi/set', st.bardi.power ? 'ON' : 'OFF');
+    }
+    function onBrChange(v) {
+      st.bardi.power = true;
+      st.bardi.brightness = Number(v);
+      renderState();
+      pushMqtt('kamar/bardi/brightness', st.bardi.brightness);
+    }
+    function onCtChange(v) {
+      st.bardi.temp = Number(v);
+      renderState();
+      pushMqtt('kamar/bardi/colortemp', st.bardi.temp);
+    }
+    function setCol(hex, name) {
+      st.bardi.power = true;
+      st.bardi.color = hex;
+      st.bardi.colorName = name;
+      renderState();
+      pushMqtt('kamar/bardi/color', hex);
+    }
+    function toggleRelay(n) {
+      st.relays['r' + n] = !st.relays['r' + n];
+      renderState();
+      pushMqtt('kamar/esp32/relay' + n + '/set', st.relays['r' + n] ? '1' : '0');
+    }
+    function setScene(s) {
+      st.scene = s;
+      if (s === 'focus') {
+        st.bardi.power = true; st.bardi.brightness = 100; st.bardi.temp = 6000; st.bardi.colorName = 'Cool Daylight';
+        st.relays.r1 = true; st.relays.r2 = true;
+      } else if (s === 'relax') {
+        st.bardi.power = true; st.bardi.brightness = 45; st.bardi.temp = 3000; st.bardi.colorName = 'Warm White';
+        st.relays.r2 = false;
+      } else if (s === 'cinema') {
+        st.bardi.power = true; st.bardi.brightness = 25; st.bardi.colorName = 'Cyber Purple';
+        st.relays.r4 = true; st.relays.r2 = false;
+      } else if (s === 'sleep') {
+        st.bardi.power = false; st.relays.r1 = true; st.relays.r2 = false; st.relays.r4 = false;
       }
-    }, 10000);
+      renderState();
+      pushMqtt('kamar/scene/set', JSON.stringify(st));
+    }
+
+    async function pollSys() {
+      try {
+        const r = await fetch(API + '/api/stats?key=27042002');
+        const d = await r.json();
+        document.getElementById('sIps').textContent = d.wifi.lanIp + ' / ' + d.wifi.tsIp;
+        document.getElementById('sRam').textContent = 'RAM: ' + d.ram.used + '/' + d.ram.total + ' MB • Free Disk: ' + d.disk.avail;
+      } catch (e) {}
+    }
+    pollSys();
+    setInterval(pollSys, 6000);
   </script>
 </body>
 </html>
