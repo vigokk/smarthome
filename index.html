@@ -290,6 +290,14 @@
       </button>
     </div>
 
+    <div class="sh-section-label">Kontrol Musik PC (YouTube / Media)</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;">
+      <button class="sh-scene-btn" style="justify-content:center;padding:12px;" onclick="pcMedia('media_prev')"><strong>⏮️ Prev</strong></button>
+      <button class="sh-scene-btn" style="justify-content:center;padding:12px;border-color:rgba(56,189,248,0.35);" onclick="pcMedia('media_playpause')"><strong>⏯️ Play / Pause</strong></button>
+      <button class="sh-scene-btn" style="justify-content:center;padding:12px;" onclick="pcMedia('media_next')"><strong>⏭️ Next</strong></button>
+      <button class="sh-scene-btn" style="justify-content:center;padding:12px;" onclick="pcMedia('focus_music')"><strong>🎵 Doin' Time</strong></button>
+    </div>
+
     <div class="sh-grid">
       <div class="sh-card bardi-on" id="bardiCard">
         <div class="sh-card-head">
@@ -572,11 +580,18 @@
       renderState();
       pushMqtt('kamar/esp32/relay' + n + '/set', st.relays['r' + n] ? '1' : '0');
     }
+    async function pcMedia(cmd) {
+      try {
+        await authFetch(API + '/api/action?cmd=' + encodeURIComponent(cmd), { method: 'POST' });
+      } catch (e) {}
+    }
+
     function setScene(s) {
       st.scene = s;
       if (s === 'focus') {
         st.bardi.power = true; st.bardi.brightness = 100; st.bardi.temp = 6000; st.bardi.colorName = 'Cool Daylight';
         st.relays.r1 = true; st.relays.r2 = true;
+        pcMedia('focus_music');
       } else if (s === 'relax') {
         st.bardi.power = true; st.bardi.brightness = 45; st.bardi.temp = 3000; st.bardi.colorName = 'Warm White';
         st.relays.r2 = false;
