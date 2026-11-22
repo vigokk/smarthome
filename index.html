@@ -392,8 +392,7 @@
 
   <script>
     const API = "https://thank-avi-split-incurred.trycloudflare.com";
-    const GH_AUTH_KEY = 'stb_sso_auth_v5';
-    const GH_TIMEOUT = 20 * 60 * 1000;
+    const GH_AUTH_KEY = 'stb_sso_token_v6';
 
     let st = {
       scene: 'relax',
@@ -401,18 +400,37 @@
       relays: { r1: false, r2: false, r3: false, r4: false }
     };
 
-    function ghCheck() {
+    function getAuthToken() {
       try {
         const d = JSON.parse(localStorage.getItem(GH_AUTH_KEY) || '{}');
-        if (d.exp && Date.now() < d.exp) return true;
+        if (d.token && d.exp && Date.now() < d.exp) return d.token;
       } catch (e) {}
       localStorage.removeItem(GH_AUTH_KEY);
-      return false;
+      return '';
     }
-    function ghUnlock() { document.getElementById('ghLoginOverlay').style.display = 'none'; }
-    function ghLogout() {
+    async function authFetch(url, opts = {}) {
+      const tok = getAuthToken();
+      if (!tok) {
+        ghLock();
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      }
+      const headers = Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + tok });
+      const r = await fetch(url, Object.assign({}, opts, { headers }));
+      if (r.status === 401) ghLock();
+      return r;
+    }
+    function ghUnlock() {
+      document.getElementById('ghLoginOverlay').style.display = 'none';
+      pollSys();
+    }
+    function ghLock() {
       localStorage.removeItem(GH_AUTH_KEY);
       document.getElementById('ghLoginOverlay').style.display = 'flex';
+    }
+    async function ghLogout() {
+      const tok = getAuthToken();
+      if (tok) fetch(API + '/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + tok } }).catch(() => {});
+      ghLock();
     }
     function toggleSidebar(force) {
       const sb = document.getElementById('sidebar');
@@ -421,17 +439,35 @@
       sb.classList.toggle('open', open);
       bd.classList.toggle('open', open);
     }
-    function ghDoLogin(e) {
+    async function ghDoLogin(e) {
       e.preventDefault();
-      if (document.getElementById('ghU').value.trim() === 'admin' && document.getElementById('ghP').value === '27042002') {
-        localStorage.setItem(GH_AUTH_KEY, JSON.stringify({ exp: Date.now() + GH_TIMEOUT }));
-        ghUnlock();
-      } else {
-        document.getElementById('ghErr').style.display = 'block';
+      const errEl = document.getElementById('ghErr');
+      errEl.style.display = 'none';
+      try {
+        const r = await fetch(API + '/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('ghU').value.trim(),
+            password: document.getElementById('ghP').value
+          })
+        });
+        const d = await r.json();
+        if (d.ok && d.token) {
+          localStorage.setItem(GH_AUTH_KEY, JSON.stringify({ token: d.token, exp: d.exp }));
+          document.getElementById('ghP').value = '';
+          ghUnlock();
+        } else {
+          errEl.textContent = d.error || 'Username atau Password salah!';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = 'Gagal menghubungi server STB.';
+        errEl.style.display = 'block';
       }
     }
-    if (ghCheck()) ghUnlock();
-    setInterval(() => { if (!ghCheck()) ghLogout(); }, 10000);
+    if (getAuthToken()) ghUnlock();
+    setInterval(() => { if (!getAuthToken()) ghLock(); }, 10000);
 
     function renderState() {
       ['focus','relax','cinema','sleep'].forEach(s => {
@@ -472,7 +508,7 @@
       const timer = setInterval(async () => {
         tries++;
         try {
-          const r = await fetch(API + '/api/pc-status?key=27042002');
+          const r = await authFetch(API + '/api/pc-status');
           const d = await r.json();
           updatePcBadge(!!d.online);
           if (!d.online) {
@@ -491,7 +527,7 @@
     async function shutdownPc() {
       if (!confirm('Matikan PC (shutdown) sekarang?')) return;
       try {
-        const r = await fetch(API + '/api/action?key=27042002&cmd=shutdown_pc', { method: 'POST' });
+        const r = await authFetch(API + '/api/action?cmd=shutdown_pc', { method: 'POST' });
         const d = await r.json();
         alert(d.message);
         if (d.message && d.message.includes('15 detik')) {
@@ -501,7 +537,7 @@
     }
 
     function pushMqtt(topic, payload) {
-      fetch(API + '/api/smarthome?key=27042002', {
+      authFetch(API + '/api/smarthome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, payload, state: st })
@@ -556,7 +592,7 @@
 
     async function pollSys() {
       try {
-        const r = await fetch(API + '/api/stats?key=27042002');
+        const r = await authFetch(API + '/api/stats');
         const d = await r.json();
         document.getElementById('sIps').textContent = d.wifi.lanIp + ' / ' + d.wifi.tsIp;
         document.getElementById('sRam').textContent = 'RAM: ' + d.ram.used + '/' + d.ram.total + ' MB • Free Disk: ' + d.disk.avail;
