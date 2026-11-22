@@ -224,7 +224,7 @@
 
     <div class="sb-section">Akses PC Saya</div>
     <button class="sb-group-btn" onclick="document.getElementById('pcSub').classList.toggle('open')">
-      <span>💻 PC Windows (HP)</span><span>▾</span>
+      <span style="display:flex;align-items:center;gap:8px;">💻 PC Windows (HP) <span id="pcDot" style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span><small id="pcStatusTxt" style="font-size:11px;color:#94a3b8;">...</small></span><span>▾</span>
     </button>
     <div class="sb-sub open" id="pcSub">
       <a href="https://remotedesktop.google.com/access" target="_blank" rel="noopener" class="sb-item">🖱️ Remote Desktop</a>
@@ -454,11 +454,49 @@
       });
     }
 
+    function updatePcBadge(online) {
+      const dot = document.getElementById('pcDot');
+      const txt = document.getElementById('pcStatusTxt');
+      if (dot) {
+        dot.style.background = online ? '#22c55e' : '#ef4444';
+        dot.style.boxShadow = online ? '0 0 8px #22c55e' : '0 0 8px #ef4444';
+      }
+      if (txt) {
+        txt.textContent = online ? 'Online' : 'Offline';
+        txt.style.color = online ? '#22c55e' : '#f87171';
+      }
+    }
+
+    function watchPcShutdown() {
+      let tries = 0;
+      const timer = setInterval(async () => {
+        tries++;
+        try {
+          const r = await fetch(API + '/api/pc-status?key=27042002');
+          const d = await r.json();
+          updatePcBadge(!!d.online);
+          if (!d.online) {
+            clearInterval(timer);
+            alert('✅ PC sudah berhasil mati (Offline).');
+            return;
+          }
+        } catch (e) {}
+        if (tries >= 25) {
+          clearInterval(timer);
+          alert('⚠️ PC masih terdeteksi Online setelah 75 detik.');
+        }
+      }, 3000);
+    }
+
     async function shutdownPc() {
       if (!confirm('Matikan PC (shutdown) sekarang?')) return;
       try {
         const r = await fetch(API + '/api/action?key=27042002&cmd=shutdown_pc', { method: 'POST' });
-        alert((await r.json()).message);
+        const d = await r.json();
+        alert(d.message);
+        if (d.message && d.message.includes('15 detik')) {
+          watchPcShutdown();
+        }
       } catch (e) { alert('Gagal menghubungi STB.'); }
     }
 
@@ -522,6 +560,7 @@
         const d = await r.json();
         document.getElementById('sIps').textContent = d.wifi.lanIp + ' / ' + d.wifi.tsIp;
         document.getElementById('sRam').textContent = 'RAM: ' + d.ram.used + '/' + d.ram.total + ' MB • Free Disk: ' + d.disk.avail;
+        updatePcBadge(!!d.pcOnline);
       } catch (e) {}
     }
     pollSys();
